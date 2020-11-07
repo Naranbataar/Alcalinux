@@ -1,0 +1,63 @@
+#!/bin/sh
+. scripts/functions.sh
+
+PKG='musl-1.2.1'
+if not_built; then
+    inside "https://musl.libc.org/releases/$PKG.tar.gz"
+    mkdir -p "$BUILD/$PKG"
+    
+    step 1 || ./configure CC="$TARGET-gcc" CROSS_COMPILE="$TARGET-" \
+              --prefix=/ --disable-static --target="$TARGET"
+    step 2 || make -j "$(nproc)"
+    step 3 || DESTDIR="$BUILD/$PKG" make install-libs
+    
+    build "$PKG"
+fi
+
+PKG='busybox-1.32.0'
+if not_built; then
+    inside "https://busybox.net/downloads/busybox-1.32.0.tar.bz2"
+    mkdir -p "$BUILD/$PKG"
+    
+    step 1 || make distclean
+    step 2 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" defconfig
+    step 3 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-"
+    step 4 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-" CONFIG_PREFIX="$BUILD/$PKG" install
+    
+    build "$PKG"
+fi
+
+PKG='linux-5.9.1'
+if not_built; then
+    inside "https://cdn.kernel.org/pub/linux/kernel/v5.x/$PKG.tar.xz"
+    mkdir -p "$BUILD/$PKG"
+
+    step 1 || make mrproper
+    step 2 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-" "${DEFCONFIG}_defconfig"
+    step 3 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-" menuconfig
+    step 4 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-" zImage
+    step 5 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-" "$DEVICE.dtb"
+    if [ "$MODULES" = y ]; then
+        step 6 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+                  CROSS_COMPILE="$TARGET-" INSTALL_MOD_PATH="$BUILD/$PKG/" \
+                  modules modules_install
+    fi
+    
+    mkdir -p "$BUILD/$PKG/boot"
+    cp "arch/arm/boot/zImage" "$BUILD/$PKG/boot/"
+    cp "arch/arm/boot/dts/$DEVICE.dtb" "$BUILD/$PKG/boot/device.dtb"
+    
+    printf 'load mmc 0:1 0x46000000 boot/zImage\n' > boot.cmd
+    printf 'load mmc 0:1 0x49000000 boot/device.dtb\n' >> boot.cmd
+    printf 'setenv bootargs %s\n' "$BOOTARGS" >> boot.cmd
+    printf 'bootz 0x46000000 - 0x49000000\n' >> boot.cmd
+    mkimage -C none -A arm -T script -d boot.cmd "$BUILD/$PKG/boot.scr"
+    
+    build "$PKG"
+fi

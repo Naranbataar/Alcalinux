@@ -1,0 +1,91 @@
+#!/bin/sh
+. scripts/functions.sh
+
+[ ! -d "$TOOLS/$TARGET" ] && mkdir -p "$TOOLS/$TARGET"
+[ ! -L "$TOOLS/$TARGET/usr" ] && ln -sfv . "$TOOLS/$TARGET/usr"
+
+if [ ! -f "$TOOLS/.linux_headers" ]; then
+    inside "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz"
+    
+    step 1 || make -j "$(nproc)" mrproper
+    step 2 || make -j "$(nproc)" ARCH="$ARCH" headers_check
+    step 3 || make -j "$(nproc)" ARCH="$ARCH" \
+              INSTALL_HDR_PATH="$TOOLS/$TARGET" headers_install
+
+    touch "$TOOLS/.linux_headers"
+    rm "$ROOT/.step"
+fi
+
+if [ ! -f "$TOOLS/.binutils" ]; then
+    inside "https://ftp.gnu.org/gnu/binutils/binutils-2.35.tar.xz"
+    mkdir -p ../binutils-build && cd ../binutils-build
+    
+    step 1 || ../binutils-2.35/configure \
+              --prefix="$TOOLS" --target="$TARGET" \
+              --with-sysroot="$TOOLS/$TARGET" \
+              --disable-nls --disable-multilib
+    step 2 || make -j "$(nproc)" configure-host
+    step 3 || make -j "$(nproc)"
+    step 4 || make -j "$(nproc)" install
+
+    touch "$TOOLS/.binutils"
+    rm "$ROOT/.step"
+fi
+
+if [ ! -f "$TOOLS/.gcc_static" ]; then
+    inside "https://ftp.gnu.org/gnu/gcc/gcc-10.2.0/gcc-10.2.0.tar.xz"
+    ./contrib/download_prerequisites
+
+    step 1 || (rm -rf ../gcc-build && mkdir -p ../gcc-build)
+    cd ../gcc-build
+
+    step 2 || ../gcc-10.2.0/configure --prefix="$TOOLS" \
+              --build="$HOST" --host="$HOST" --target="$TARGET" \
+              --with-sysroot="$TOOLS/$TARGET" --disable-nls --disable-shared \
+              --without-headers --with-newlib --disable-decimal-float \
+              --disable-libgomp --disable-libmudflap --disable-libssp \
+              --disable-libatomic --disable-libquadmath --disable-threads \
+              --enable-languages=c --disable-multilib \
+              --with-arch="$ARM_ARCH" --with-float="$FLOAT" --with-fpu="$FPU"
+
+    step 3 || make -j "$(nproc)" all-gcc all-target-libgcc
+    step 4 || make -j "$(nproc)" install-gcc install-target-libgcc
+
+    touch "$TOOLS/.gcc_static"
+    rm "$ROOT/.step"
+fi
+    
+
+if [ ! -f "$TOOLS/.musl" ]; then
+    inside "https://musl.libc.org/releases/musl-1.2.1.tar.gz"
+
+    export PATH="$PATH:$(realpath "$TOOLS/bin")"
+    step 1 || ./configure CC="$TARGET-gcc" CROSS_COMPILE="$TARGET-" \
+              --prefix=/ --target="$TARGET"
+    step 2 || make -j "$(nproc)" 
+    step 3 || DESTDIR="$TOOLS/$TARGET" make -j "$(nproc)" install
+
+    touch "$TOOLS/.musl"
+    rm "$ROOT/.step"
+fi
+
+if [ ! -f "$TOOLS/.gcc_final" ]; then
+    inside "https://ftp.gnu.org/gnu/gcc/gcc-10.2.0/gcc-10.2.0.tar.xz"
+
+    step 1 || (rm -rf ../gcc-build && mkdir -p ../gcc-build)
+    cd ../gcc-build
+
+    step 2 || ../gcc-10.2.0/configure --prefix="$TOOLS" \
+              --build="$HOST" --host="$HOST" --target="$TARGET" \
+              --with-sysroot="$TOOLS/$TARGET"  --disable-nls \
+              --enable-languages=c \
+              --enable-c99 --enable-long-long --disable-libmudflap \
+              --disable-multilib \
+              --with-arch="$ARM_ARCH" --with-float="$FLOAT" --with-fpu="$FPU"
+
+    step 3 || make -j "$(nproc)"
+    step 4 || make -j "$(nproc)" install
+
+    touch "$TOOLS/.gcc_final"
+    rm "$ROOT/.step"
+fi

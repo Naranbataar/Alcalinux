@@ -1,0 +1,115 @@
+#!/bin/sh
+
+error(){ printf 'chateau: %s\n' "$1" >&2 && exit 1; }
+
+usage(){
+    printf '%s\n' "usage: chateau [OPTIONS] COMMAND [ARGS]"
+    printf '%s\n' "Alcalinux package manager"
+    printf '%s\n'
+    printf '%s\n' "Avaliable commands:"
+    printf '%s\n' "make FILE      Make a package from cd"
+    printf '%s\n' "add FILE       Install a package"
+    printf '%s\n' "remove NAME    Uninstall a package"
+    printf '%s\n' "list           List installed packages"
+    printf '%s\n' ''
+    printf '%s\n' "Avaliable options:"
+    printf '%s\n' "-r PATH    Change root (/)"
+    printf '%s\n' "-i PATH    Change info (/etc/packages)"
+    printf '%s\n' "-p         Preview command"
+    exit 1
+}
+
+need_root(){
+    [ -d "$root" ] || error "Non existent root directory"
+    root="$(realpath "$root")"
+}
+
+need_info(){
+    [ -d "$infodir" ] || error "Non existent info directory"
+    infodir="$(realpath "$infodir")"
+}
+
+command_make(){
+    file="$1"
+    
+    if [ "$preview" = y ]; then
+        printf '%s %s\n' "# These files will be added to" "$1"
+        find *
+    else
+        tar -cf "$file" * 
+    fi
+}
+
+command_add(){
+    need_root && need_info
+    file="$1"; name="$(basename ${file%.tar*})"; pkginfo="$infodir/$name"
+    [ -f "$file" ] || error "File not found"
+    
+    if [ ! -f "$pkginfo" ]; then
+        if [ "$preview" = y ]; then
+            printf '%s %s\n' "# These files will be installed into" "$root"
+            pkginfo=/dev/stdout
+        fi
+
+        tar -tf "$1" | while read -r file; do
+            [ -e "$root/$file" ] || printf '%s\n' "$file"
+        done > "$pkginfo"
+        
+        [ "$preview" = y ] || tar -xf "$1" -C "$root"
+    else
+        error 'Package already installed'
+    fi
+}
+
+command_remove(){
+    need_root && need_info
+    name="$1"; pkginfo="$infodir/$name"
+    if [ -f "$pkginfo" ]; then
+        if [ "$preview" = y ]; then
+            printf '%s %s\n' "# These files will be uninstalled from" "$root"
+            cat "$pkginfo"
+        else
+            cd "$root"
+            xargs rm -rf < "$pkginfo"
+            rm -rf "$pkginfo"
+        fi
+    else
+        error 'Package not installed'
+    fi
+}
+
+command_list(){
+    need_info
+    if [ "$preview" = y ]; then
+        printf '%s\n' "# This folder will have it's files listed"
+        printf '%s\n' "$infodir"
+    else
+        cd "$infodir" && find * -maxdepth 0 -type f 2>/dev/null
+    fi
+}
+
+root=/
+infodir=/etc/packages/
+preview=n
+
+while getopts "r:i:p" opt; do
+    case "$opt" in
+     r) root="$OPTARG" ;;
+     i) infodir="$OPTARG" ;;
+     p) preview='y' ;;
+     *) usage >&2 ;;
+    esac
+done
+shift "$(( OPTIND - 1 ))"
+
+command="$1"; shift
+case "$command" in
+    make|add|remove)
+        [ "$#" -eq 1 ] || usage >&2
+        command_$command "$1" ;;
+    list)
+        [ "$#" -eq 0 ] || usage >&2
+        command_$command ;;
+    *)
+        usage >&2 ;;
+esac
