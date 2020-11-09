@@ -1,0 +1,17 @@
+#!/bin/sh
+. scripts/functions.sh
+
+PKG='busybox-1.32.0'
+if not_built; then
+    inside "https://busybox.net/downloads/$PKG.tar.bz2"
+    mkdir -p "$BUILD/$PKG"
+    
+    step 1 || make distclean
+    step 2 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" defconfig
+    step 3 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-"
+    step 4 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
+              CROSS_COMPILE="$TARGET-" CONFIG_PREFIX="$BUILD/$PKG" install
+    
+    build "$PKG"
+fi

@@ -1,16 +1,20 @@
 #!/bin/sh
 . scripts/functions.sh
 
-if [ ! -f "$BUILD/u-boot.bin" ]; then
-    if [ ! -d "$DOWNLOADS/u-boot" ]; then
+PKG='u-boot'
+if [ ! -f "$BUILD/$PKG.bin" ]; then
+    if [ ! -d "$DOWNLOADS/$PKG" ]; then
         cd "$DOWNLOADS" && git clone https://gitlab.denx.de/u-boot/u-boot.git
+	rm -f "$ROOT/.step-$PKG"
     fi
 
-    cd "$DOWNLOADS/u-boot"
+    cd "$DOWNLOADS/$PKG"
     step 1 || git checkout tags/v2020.04
     step 2 || make ARCH=arm CROSS_COMPILE=arm-linux-musleabihf- \
               "${UBOOT_DEFCONFIG}_defconfig"
     step 3 || make ARCH=arm CROSS_COMPILE=arm-linux-musleabihf- menuconfig
     step 4 || make ARCH=arm CROSS_COMPILE=arm-linux-musleabihf-
-    cp "$UBOOT_IMAGE" "$BUILD/u-boot.bin"
+    
+    cp "$UBOOT_IMAGE" "$BUILD/$PKG.bin"
+    rm -f "$ROOT/.step-$PKG"
 fi

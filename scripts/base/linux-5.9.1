@@ -1,34 +1,6 @@
 #!/bin/sh
 . scripts/functions.sh
 
-PKG='musl-1.2.1'
-if not_built; then
-    inside "https://musl.libc.org/releases/$PKG.tar.gz"
-    mkdir -p "$BUILD/$PKG"
-    
-    step 1 || ./configure CC="$TARGET-gcc" CROSS_COMPILE="$TARGET-" \
-              --prefix=/ --disable-static --target="$TARGET"
-    step 2 || make -j "$(nproc)"
-    step 3 || DESTDIR="$BUILD/$PKG" make install-libs
-    
-    build "$PKG"
-fi
-
-PKG='busybox-1.32.0'
-if not_built; then
-    inside "https://busybox.net/downloads/busybox-1.32.0.tar.bz2"
-    mkdir -p "$BUILD/$PKG"
-    
-    step 1 || make distclean
-    step 2 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" defconfig
-    step 3 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
-              CROSS_COMPILE="$TARGET-"
-    step 4 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
-              CROSS_COMPILE="$TARGET-" CONFIG_PREFIX="$BUILD/$PKG" install
-    
-    build "$PKG"
-fi
-
 PKG='linux-5.9.1'
 if not_built; then
     inside "https://cdn.kernel.org/pub/linux/kernel/v5.x/$PKG.tar.xz"

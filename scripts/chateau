@@ -20,83 +20,87 @@ usage(){
 }
 
 need_root(){
-    [ -d "$root" ] || error "Non existent root directory"
-    root="$(realpath "$root")"
+    [ -d "$ROOT" ] || error "Non existent root directory"
+    ROOT="$(realpath "$ROOT")"
 }
 
 need_info(){
-    [ -d "$infodir" ] || error "Non existent info directory"
-    infodir="$(realpath "$infodir")"
+    [ -d "$INFO" ] || error "Non existent info directory"
+    INFO="$(realpath "$INFO")"
 }
 
 command_make(){
     file="$1"
     
-    if [ "$preview" = y ]; then
+    if [ "$PREVIEW" = y ]; then
         printf '%s %s\n' "# These files will be added to" "$1"
         find *
     else
         tar -cf "$file" * 
     fi
+    
+    unset file
 }
 
 command_add(){
     need_root && need_info
-    file="$1"; name="$(basename ${file%.tar*})"; pkginfo="$infodir/$name"
+    file="$1"; name="$(basename ${file%.tar*})"; pkginfo="$INFO/$name"
     [ -f "$file" ] || error "File not found"
     
     if [ ! -f "$pkginfo" ]; then
-        if [ "$preview" = y ]; then
-            printf '%s %s\n' "# These files will be installed into" "$root"
+        if [ "$PREVIEW" = y ]; then
+            printf '%s %s\n' "# These files will be installed into" "$ROOT"
             pkginfo=/dev/stdout
         fi
 
         tar -tf "$1" | while read -r file; do
-            [ -e "$root/$file" ] || printf '%s\n' "$file"
+            [ -e "$ROOT/$file" ] || printf '%s\n' "$file"
         done > "$pkginfo"
         
-        [ "$preview" = y ] || tar -xf "$1" -C "$root"
+        [ "$PREVIEW" = y ] || tar -xf "$1" -C "$ROOT"
     else
         error 'Package already installed'
     fi
+
+    unset file name pkginfo
 }
 
 command_remove(){
     need_root && need_info
-    name="$1"; pkginfo="$infodir/$name"
+    name="$1"; pkginfo="$INFO/$name"
     if [ -f "$pkginfo" ]; then
-        if [ "$preview" = y ]; then
-            printf '%s %s\n' "# These files will be uninstalled from" "$root"
+        if [ "$PREVIEW" = y ]; then
+            printf '%s %s\n' "# These files will be uninstalled from" "$ROOT"
             cat "$pkginfo"
         else
-            cd "$root"
+            cd "$ROOT"
             xargs rm -rf < "$pkginfo"
             rm -rf "$pkginfo"
         fi
     else
         error 'Package not installed'
     fi
+
+    unset name pkginfo
 }
 
 command_list(){
     need_info
-    if [ "$preview" = y ]; then
+    if [ "$PREVIEW" = y ]; then
         printf '%s\n' "# This folder will have it's files listed"
-        printf '%s\n' "$infodir"
+        printf '%s\n' "$INFO"
     else
-        cd "$infodir" && find * -maxdepth 0 -type f 2>/dev/null
+        cd "$INFO" && find * -maxdepth 0 -type f 2>/dev/null
     fi
 }
 
-root=/
-infodir=/etc/packages/
-preview=n
+ROOT=/
+INFO=/etc/packages/
+PREVIEW=n
 
 while getopts "r:i:p" opt; do
     case "$opt" in
-     r) root="$OPTARG" ;;
-     i) infodir="$OPTARG" ;;
-     p) preview='y' ;;
+     r) ROOT="$OPTARG" ;; i) INFO="$OPTARG" ;; p) PREVIEW='y' ;;
      *) usage >&2 ;;
     esac
 done
@@ -113,3 +117,4 @@ case "$command" in
     *)
         usage >&2 ;;
 esac
+unset command

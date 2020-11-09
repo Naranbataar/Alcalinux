@@ -4,7 +4,17 @@
 [ ! -d "$TOOLS/$TARGET" ] && mkdir -p "$TOOLS/$TARGET"
 [ ! -L "$TOOLS/$TARGET/usr" ] && ln -sfv . "$TOOLS/$TARGET/usr"
 
-if [ ! -f "$TOOLS/.linux_headers" ]; then
+without_tool(){
+    [ ! -f "$TOOLS/.$PKG" ]
+}
+
+build_tool(){
+    touch "$TOOLS/.$PKG"
+    rm "$ROOT/.step-$PKG"
+}
+
+PKG='linux_headers'
+if without_tool; then
     inside "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz"
     
     step 1 || make -j "$(nproc)" mrproper
@@ -12,11 +22,11 @@ if [ ! -f "$TOOLS/.linux_headers" ]; then
     step 3 || make -j "$(nproc)" ARCH="$ARCH" \
               INSTALL_HDR_PATH="$TOOLS/$TARGET" headers_install
 
-    touch "$TOOLS/.linux_headers"
-    rm "$ROOT/.step"
+    build_tool
 fi
 
-if [ ! -f "$TOOLS/.binutils" ]; then
+PKG='binutils'
+if without_tool; then
     inside "https://ftp.gnu.org/gnu/binutils/binutils-2.35.tar.xz"
     mkdir -p ../binutils-build && cd ../binutils-build
     
@@ -28,11 +38,11 @@ if [ ! -f "$TOOLS/.binutils" ]; then
     step 3 || make -j "$(nproc)"
     step 4 || make -j "$(nproc)" install
 
-    touch "$TOOLS/.binutils"
-    rm "$ROOT/.step"
+    build_tool
 fi
 
-if [ ! -f "$TOOLS/.gcc_static" ]; then
+PKG='gcc_static'
+if without_tool; then
     inside "https://ftp.gnu.org/gnu/gcc/gcc-10.2.0/gcc-10.2.0.tar.xz"
     ./contrib/download_prerequisites
 
@@ -51,12 +61,11 @@ if [ ! -f "$TOOLS/.gcc_static" ]; then
     step 3 || make -j "$(nproc)" all-gcc all-target-libgcc
     step 4 || make -j "$(nproc)" install-gcc install-target-libgcc
 
-    touch "$TOOLS/.gcc_static"
-    rm "$ROOT/.step"
+    build_tool
 fi
     
-
-if [ ! -f "$TOOLS/.musl" ]; then
+PKG='musl_gcc'
+if without_tool; then
     inside "https://musl.libc.org/releases/musl-1.2.1.tar.gz"
 
     export PATH="$PATH:$(realpath "$TOOLS/bin")"
@@ -65,11 +74,11 @@ if [ ! -f "$TOOLS/.musl" ]; then
     step 2 || make -j "$(nproc)" 
     step 3 || DESTDIR="$TOOLS/$TARGET" make -j "$(nproc)" install
 
-    touch "$TOOLS/.musl"
-    rm "$ROOT/.step"
+    build_tool
 fi
 
-if [ ! -f "$TOOLS/.gcc_final" ]; then
+PKG='gcc_final'
+if without_tool; then
     inside "https://ftp.gnu.org/gnu/gcc/gcc-10.2.0/gcc-10.2.0.tar.xz"
 
     step 1 || (rm -rf ../gcc-build && mkdir -p ../gcc-build)
@@ -86,6 +95,5 @@ if [ ! -f "$TOOLS/.gcc_final" ]; then
     step 3 || make -j "$(nproc)"
     step 4 || make -j "$(nproc)" install
 
-    touch "$TOOLS/.gcc_final"
-    rm "$ROOT/.step"
+    build_tool
 fi
