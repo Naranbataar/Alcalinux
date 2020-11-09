@@ -11,5 +11,5 @@ if not_built; then
     step 2 || make -j "$(nproc)"
     step 3 || DESTDIR="$BUILD/$PKG" make install-libs
     
-    build "$PKG"
+    build
 fi

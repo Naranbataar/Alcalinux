@@ -13,5 +13,5 @@ if not_built; then
     step 4 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
               CROSS_COMPILE="$TARGET-" CONFIG_PREFIX="$BUILD/$PKG" install
     
-    build "$PKG"
+    build
 fi

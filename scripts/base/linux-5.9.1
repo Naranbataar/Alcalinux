@@ -31,5 +31,5 @@ if not_built; then
     printf 'bootz 0x46000000 - 0x49000000\n' >> boot.cmd
     mkimage -C none -A arm -T script -d boot.cmd "$BUILD/$PKG/boot.scr"
     
-    build "$PKG"
+    build
 fi

@@ -27,13 +27,11 @@ step(){
     [ "$(cat "$ROOT/.step-$PKG" 2>/dev/null || printf '1\n')" -gt "$1" ]
     ret="$?"
 
-    printf '%d\n' "$(( $1 + 1 ))" > "$ROOT/.step-$PKG" \
-    || rm -f "$ROOT/.step-$PKG"
-
+    [ "$ret" -eq 0 ] || printf '%d\n' "$1" > "$ROOT/.step-$PKG"
     return "$ret"
 }
 
 build(){
-    cd "$BUILD/$1" && chateau make "$BUILD/$1.tar.xz" && rm -rf "$BUILD/$1" \
-    && rm -f "$ROOT/.step-$PKG"
+    cd "$BUILD/$PKG" && chateau make "$BUILD/$PKG.tar.xz" \
+    && rm -rf "$BUILD/$PKG" && rm -f "$ROOT/.step-$PKG"
 }
