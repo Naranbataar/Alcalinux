@@ -1,7 +1,7 @@
 #!/bin/sh
 . scripts/functions.sh
 
-PKG='linux-5.9.1'
+PKG='linux-5.10.12'
 if not_built; then
     inside "https://cdn.kernel.org/pub/linux/kernel/v5.x/$PKG.tar.xz"
     mkdir -p "$BUILD/$PKG"
@@ -14,20 +14,41 @@ if not_built; then
     step 4 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
               CROSS_COMPILE="$TARGET-" zImage
     step 5 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
-              CROSS_COMPILE="$TARGET-" "$DEVICE.dtb"
+              CROSS_COMPILE="$TARGET-" DTC_FLAGS='-@' "$DEVICE.dtb"
     if [ "$MODULES" = y ]; then
         step 6 || make -j "$(nproc)" CC="$TARGET-gcc" ARCH="$ARCH" \
                   CROSS_COMPILE="$TARGET-" INSTALL_MOD_PATH="$BUILD/$PKG/" \
                   modules modules_install
     fi
     
-    mkdir -p "$BUILD/$PKG/boot"
+    mkdir -p "$BUILD/$PKG/boot/dtb"
     cp "arch/arm/boot/zImage" "$BUILD/$PKG/boot/"
-    cp "arch/arm/boot/dts/$DEVICE.dtb" "$BUILD/$PKG/boot/device.dtb"
+    cp "arch/arm/boot/dts/$DEVICE.dtb" "$BUILD/$PKG/boot/dtb/"
+    if [ -n "$OVERLAYS" ]; then
+        for x in "$OVERLAYS/"*.dts; do
+            if [ -f "$x" ]; then
+                dtc -@ -I dts -O dtb \
+                    -o "$BUILD/$PKG/boot/dtb/$(basename "${x%.*}").dtbo" "$x"
+            fi
+        done
+        for x in "$OVERLAYS/"*.dtbo; do
+            [ -f "$x" ] && cp "$x" "$BUILD/$PKG/boot/dtb/"
+        done
+    fi
     
-    printf 'load mmc 0:1 0x46000000 boot/zImage\n' > boot.cmd
-    printf 'load mmc 0:1 0x49000000 boot/device.dtb\n' >> boot.cmd
+
+    printf 'load mmc 0:1 0x46000000 boot/zImage\n' >> boot.cmd
+    printf 'load mmc 0:1 0x49000000 boot/dtb/%s.dtb\n' "$DEVICE" >> boot.cmd
     printf 'setenv bootargs %s\n' "$BOOTARGS" >> boot.cmd
+    printf '\n' >> boot.cmd
+    printf 'fdt addr 0x49000000\n' >> boot.cmd
+    printf 'fdt resize 8192\n' >> boot.cmd
+    for x in "$BUILD/$PKG/boot/dtb/"*.dtbo; do
+        if [ -f "$x" ]; then
+            printf '    load mmc 0:1 0x4900F000 %s\n' "$x" >> boot.cmd
+            printf '    fdt apply 0x4900F000\n' >> boot.cmd
+        fi
+    done
     printf 'bootz 0x46000000 - 0x49000000\n' >> boot.cmd
     mkimage -C none -A arm -T script -d boot.cmd "$BUILD/$PKG/boot.scr"
     
