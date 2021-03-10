@@ -1,5 +1,4 @@
 #!/bin/sh
-. scripts/config.sh
 
 not_built(){
     [ ! -f "$BUILD/$PKG.tar.xz" ]
