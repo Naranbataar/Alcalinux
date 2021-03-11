@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e -v
 
 not_built(){
     [ ! -f "$BUILD/$PKG.tar.xz" ]
