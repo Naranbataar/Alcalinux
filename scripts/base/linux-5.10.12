@@ -37,7 +37,7 @@ if not_built; then
     fi
     
 
-    printf 'load mmc 0:1 0x46000000 boot/zImage\n' >> boot.cmd
+    printf 'load mmc 0:1 0x46000000 boot/zImage\n' > boot.cmd
     printf 'load mmc 0:1 0x49000000 boot/dtb/%s.dtb\n' "$DEVICE" >> boot.cmd
     printf 'setenv bootargs %s\n' "$BOOTARGS" >> boot.cmd
     printf '\n' >> boot.cmd
@@ -45,8 +45,9 @@ if not_built; then
     printf 'fdt resize 8192\n' >> boot.cmd
     for x in "$BUILD/$PKG/boot/dtb/"*.dtbo; do
         if [ -f "$x" ]; then
-            printf '    load mmc 0:1 0x4900F000 %s\n' "$x" >> boot.cmd
-            printf '    fdt apply 0x4900F000\n' >> boot.cmd
+            printf 'load mmc 0:1 0x4900F000 %s\n' \
+                   "boot/dtb/$(basename "$x")" >> boot.cmd
+            printf 'fdt apply 0x4900F000\n' >> boot.cmd
         fi
     done
     printf 'bootz 0x46000000 - 0x49000000\n' >> boot.cmd
