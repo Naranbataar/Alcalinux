@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e -v
+set -e
 
 not_built(){
     [ ! -f "$BUILD/$PKG.tar.xz" ]
@@ -27,7 +27,10 @@ step(){
     [ "$(cat "$ROOT/.step-$PKG" 2>/dev/null || printf '1\n')" -gt "$1" ]
     ret="$?"
 
-    [ "$ret" -eq 0 ] || printf '%d\n' "$1" > "$ROOT/.step-$PKG"
+    if [ ! "$ret" -eq 0 ]; then
+        printf '%d\n' "$1" > "$ROOT/.step-$PKG"
+        printf '=== %s: step %d ===\n' "$PKG" "$1" >&2
+    fi
     return "$ret"
 }
 
